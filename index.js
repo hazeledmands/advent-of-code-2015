@@ -6,23 +6,26 @@ async function main() {
   const ast = await parseFile({
     path: "./input.txt",
     lexemes: [
-      {
-        type: "floor",
-        re: /[()]+/,
-        value: (p) =>
-          p.split("").reduce((curr, instruction, i) => {
-            const next = curr + (instruction === "(" ? 1 : -1);
-            if (next === -1) console.log(`Entering the basement at ${i + 1}`);
-            return next;
-          }, 0),
-      },
+      { type: "dimension", re: /\d+/, value: (d) => parseInt(d) },
+      { type: "x", re: /x/, ignore: true },
+      { type: "separator", re: /\n/, ignore: true },
     ],
     grammar: {
-      directions: {
-        syntax: [["floor"]],
+      boxList: {
+        syntax: [["box", "separator", "boxList"], ["box"]],
+        value: (l) => _(l.parts).map("value").sum(),
+      },
+      box: {
+        syntax: [["dimension", "x", "dimension", "x", "dimension"]],
+        value: (b) => {
+          const [l, w, h] = _.map(b.parts, "value");
+          const areas = [l * w, w * h, h * l];
+          const slack = Math.min(...areas);
+          return slack + _.sum(areas.map((a) => a * 2));
+        },
       },
     },
-    entry: "directions",
+    entry: "boxList",
   });
 
   console.log(ast.value);

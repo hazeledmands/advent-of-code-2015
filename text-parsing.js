@@ -68,7 +68,6 @@ function validateGrammar({ lexemes, grammar }) {
   const validSubClauses = new Set();
   for (const lexeme of lexemes) validSubClauses.add(lexeme.type);
   for (const name of Object.keys(grammar)) validSubClauses.add(name);
-  console.log(validSubClauses);
 
   _.forEach(grammar, (clause, name) => {
     for (const option of clause.syntax) {
