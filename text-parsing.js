@@ -14,8 +14,63 @@ export async function readFile(filepath) {
   const code = fs.readFileSync(filepath, { encoding: "utf-8" });
   const lines = code.split("\n");
   process.stdout.write(`${code.length} chars, ${lines.length} lines.\n`);
-  return { path: filepath, lines, code };
+  return new File({ path: filepath, lines, code });
 }
+
+class CodeLocation {
+  constructor(location) {
+    Object.assign(this, location);
+  }
+}
+
+class CodeSnippet {
+  constructor(snippet) {
+    Object.assign(this, snippet);
+  }
+
+  toString() {
+    return this.code();
+  }
+
+  code() {
+    return this.file.read(this.start, this.end);
+  }
+
+  static join(snippets) {
+    const files = _.map(snippets, "file");
+    if (_.uniq(files) > 1)
+      throw new Error("Can't join code snippets from multiple files!");
+
+    const [start] = _.map(snippets, "start").sort((a, b) =>
+      a.ln == b.ln ? a.col - b.col : a.ln - b.ln
+    );
+    const [end] = _.map(snippets, "end").sort((b, a) =>
+      a.ln == b.ln ? a.col - b.col : a.ln - b.ln
+    );
+
+    return new CodeSnippet({ file: _.first(files), start, end });
+  }
+}
+
+class File {
+  constructor(file) {
+    Object.assign(this, file);
+  }
+
+  read(startLocation, endLocation) {
+    let result = "";
+    for (let i = startLocation.ln - 1; i < endLocation.ln; ++i) {
+      const start = i === startLocation.ln - 1 ? startLocation.col - 1 : 0;
+      const end =
+        i === endLocation.ln - 1 ? endLocation.col - 1 : this.lines[i].length;
+      result += this.lines[i].slice(start, end);
+    }
+    return result;
+  }
+}
+
+class Token extends CodeSnippet {}
+class Clause extends CodeSnippet {}
 
 export function tokenize(file, lexemes) {
   const { code: input } = file;
@@ -31,22 +86,24 @@ export function tokenize(file, lexemes) {
       const result = remain.match(re);
       if (result == null || result.index != 0) continue;
 
-      const code = result[0];
-      readHead += code.length;
+      const text = result[0];
+      readHead += text.length;
 
-      const newLines = Array.from(code.matchAll(/\n[^\n]*/g));
+      const newLines = Array.from(text.matchAll(/\n[^\n]*/g));
       let endCol;
       if (newLines.length > 0) endCol = _.last(newLines)[0].length;
-      else endCol = col + code.length;
+      else endCol = col + text.length;
 
-      tokens.push({
-        type,
-        code,
-        value: valueFn ? valueFn(code) : code,
-        start: { ln, col },
-        end: { ln: ln + newLines.length, col: endCol },
-        ignore,
-      });
+      tokens.push(
+        new Token({
+          type,
+          value: valueFn ? valueFn(text) : text,
+          ignore,
+          file,
+          start: new CodeLocation({ ln, col }),
+          end: new CodeLocation({ ln: ln + newLines.length, col: endCol }),
+        })
+      );
 
       ln += newLines.length;
       col = endCol;
@@ -120,14 +177,14 @@ export function parseGrammar(file, tokens, grammar, expectedType = "program") {
         const token = remainingTokens[0];
         if (token != null && token.type == part) {
           debugLog(chalk.green("match"), token);
-          if (!token.ignore) resultParts.push(token);
+          resultParts.push(token);
           remainingTokens = remainingTokens.slice(1);
           continue parts;
         }
 
         const subClause = parse(remainingTokens, part);
         if (subClause != null) {
-          debugLog(chalk.green("match"), subClause.type);
+          debugLog(chalk.green("match"), subClause);
 
           remainingTokens = remainingTokensM.get(subClause);
 
@@ -145,11 +202,11 @@ export function parseGrammar(file, tokens, grammar, expectedType = "program") {
         continue option;
       }
 
-      const clause = {
+      const clause = new Clause({
         type: expectedType,
-        parts: resultParts,
-        code: resultParts.map(({ code }) => code).join(""),
-      };
+        parts: resultParts.filter((part) => !part.ignore),
+        ...CodeSnippet.join(resultParts),
+      });
 
       if (expectedClause.value != null)
         clause.value = expectedClause.value(clause);

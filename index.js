@@ -18,10 +18,15 @@ async function main() {
       box: {
         syntax: [["dimension", "x", "dimension", "x", "dimension"]],
         value: (b) => {
-          const [l, w, h] = _.map(b.parts, "value");
-          const areas = [l * w, w * h, h * l];
-          const slack = Math.min(...areas);
-          return slack + _.sum(areas.map((a) => a * 2));
+          const [l, w, h] = _(b.parts)
+            .map("value")
+            .sort((a, b) => a - b)
+            .value();
+          const volume = l * w * h;
+          const perimiter = 2 * l + 2 * w;
+          const result = perimiter + volume;
+          console.log({ code: b.code(), l, w, h, volume, perimiter, result });
+          return result;
         },
       },
     },
