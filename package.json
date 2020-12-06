@@ -1,0 +1,22 @@
+{
+  "name": "advent-of-code-2020",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "solve": "node index.js",
+    "watch": "watch 'node index.js' . --ignoreDotFiles --ignoreUnreadable --interval=1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "prettier": "^2.2.1",
+    "watch": "^1.0.2"
+  },
+  "type": "module",
+  "dependencies": {
+    "chalk": "^4.1.0",
+    "lodash": "^4.17.20"
+  }
+}
