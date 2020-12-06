@@ -25,7 +25,7 @@ async function main() {
           const volume = l * w * h;
           const perimiter = 2 * l + 2 * w;
           const result = perimiter + volume;
-          console.log({ code: b.code(), l, w, h, volume, perimiter, result });
+          console.log({ code: b.read(), l, w, h, volume, perimiter, result });
           return result;
         },
       },

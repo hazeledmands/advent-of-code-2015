@@ -18,21 +18,26 @@ export async function readFile(filepath) {
 }
 
 class CodeLocation {
-  constructor(location) {
-    Object.assign(this, location);
+  constructor({ file, ln, col }) {
+    Object.assign(this, { file, ln, col });
   }
 }
 
 class CodeSnippet {
-  constructor(snippet) {
-    Object.assign(this, snippet);
+  constructor({ start, end }) {
+    if (start.file !== end.file) {
+      throw new Error(
+        "Attempted to create a code snippet between two distinct files"
+      );
+    }
+    Object.assign(this, { file: start.file, start, end });
   }
 
   toString() {
     return this.code();
   }
 
-  code() {
+  read() {
     return this.file.read(this.start, this.end);
   }
 
@@ -69,8 +74,33 @@ class File {
   }
 }
 
-class Token extends CodeSnippet {}
-class Clause extends CodeSnippet {}
+class Token extends CodeSnippet {
+  constructor({ type, value, ignore, start, end }) {
+    super({ start, end });
+    Object.assign(this, { type, value, ignore });
+  }
+}
+
+class Clause extends CodeSnippet {
+  constructor({ type, parts, start, end }) {
+    super({ start, end });
+    Object.assign(this, { type, parts });
+  }
+}
+
+class LineNumberError extends Error {
+  constructor({ message, file, ln, col }) {
+    const loc = chalk.bold([file.path, ln, col].join(":"));
+
+    super(
+      [
+        `Parsing failed at ${loc}: ${message}`,
+        file.lines[ln - 1],
+        `${_.repeat(" ", col - 1)}^`,
+      ].join("\n")
+    );
+  }
+}
 
 export function tokenize(file, lexemes) {
   const { code: input } = file;
@@ -99,9 +129,12 @@ export function tokenize(file, lexemes) {
           type,
           value: valueFn ? valueFn(text) : text,
           ignore,
-          file,
-          start: new CodeLocation({ ln, col }),
-          end: new CodeLocation({ ln: ln + newLines.length, col: endCol }),
+          start: new CodeLocation({ file, ln, col }),
+          end: new CodeLocation({
+            file,
+            ln: ln + newLines.length,
+            col: endCol,
+          }),
         })
       );
 
@@ -217,20 +250,6 @@ export function parseGrammar(file, tokens, grammar, expectedType = "program") {
     }
 
     return null;
-  }
-}
-
-class LineNumberError extends Error {
-  constructor({ message, file, ln, col }) {
-    const loc = chalk.bold([file.path, ln, col].join(":"));
-
-    super(
-      [
-        `Parsing failed at ${loc}: ${message}`,
-        file.lines[ln - 1],
-        `${_.repeat(" ", col - 1)}^`,
-      ].join("\n")
-    );
   }
 }
 
