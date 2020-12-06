@@ -6,18 +6,23 @@ async function main() {
   const ast = await parseFile({
     path: "./input.txt",
     lexemes: [
-      { type: "person", re: /\w+/, value: (p) => p.split("") },
-      { type: "separator", re: /\n/, ignore: true },
+      {
+        type: "floor",
+        re: /[()]+/,
+        value: (p) =>
+          p.split("").reduce((curr, instruction, i) => {
+            const next = curr + (instruction === "(" ? 1 : -1);
+            if (next === -1) console.log(`Entering the basement at ${i + 1}`);
+            return next;
+          }, 0),
+      },
     ],
     grammar: {
-      groupList: {
-        syntax: [["group", "separator", "separator", "groupList"], ["group"]],
-      },
-      group: {
-        syntax: [["person", "separator", "group"], ["person"]],
+      directions: {
+        syntax: [["floor"]],
       },
     },
-    entry: "groupList",
+    entry: "directions",
   });
 
   console.log(ast.value);

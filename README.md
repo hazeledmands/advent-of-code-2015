@@ -1,6 +1,6 @@
-# Advent of Code 2020
+# Advent of Code 2015
 
-Here's the code I've written to solve the [2020 Advent of Code puzzles](https://adventofcode.com/2020). **Warning: contains spoilers!**
+Here's the code I've written to solve the [2015 Advent of Code puzzles](https://adventofcode.com/2015). **Warning: contains spoilers!**
 
 Things are written in JS, and runnable in node >= v14.
 
