@@ -218,6 +218,12 @@ export class Grammar {
     const remainingTokensM = new WeakMap();
     const { rules } = this;
 
+    if (rules[entry] == null) {
+      throw new Error(
+        `Could find a rule describing entrypoint ${chalk.red(entry)}`
+      );
+    }
+
     const tokens = this.tokenize(file);
     const ast = parse(tokens, entry);
 

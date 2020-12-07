@@ -7,7 +7,7 @@ async function main() {
     new Lexeme("dimension", { re: /\d+/, evaluate: (d) => parseInt(d) }),
     new Lexeme("x", { re: /x/, ignore: true }),
     new Lexeme("separator", { re: /\n/, ignore: true }),
-    new Rule("box", {
+    new Rule("Box", {
       syntax: [["dimension", "x", "dimension", "x", "dimension"]],
       evaluate: (b) => {
         const [l, w, h] = _(b.parts)
@@ -17,18 +17,18 @@ async function main() {
         const volume = l * w * h;
         const perimiter = 2 * l + 2 * w;
         const result = perimiter + volume;
-        // console.log({ code: b.read(), l, w, h, volume, perimiter, result });
+        console.log({ code: b.read(), l, w, h, volume, perimiter, result });
         return result;
       },
     }),
-    new Rule("boxList", {
-      syntax: [["box", "separator", "boxList"], ["box"]],
+    new Rule("BoxList", {
+      syntax: [["Box", "separator", "BoxList"], ["Box"]],
       evaluate: (l) => _.sum(l.parts.map((part) => part.value())),
     }),
   ]);
 
-  const file = await File.loadFrom("./test.txt");
-  const ast = grammar.parse(file, "boxList");
+  const file = await File.loadFrom("./input.txt");
+  const ast = grammar.parse(file, "BoxList");
   console.log(ast.value());
 }
 
