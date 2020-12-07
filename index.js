@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import _ from "lodash";
-import { File, Grammar, Rule, Lexeme } from "./text-parsing.js";
+import { File, Grammar, Rule, Lexeme } from "@demands/text-parsing";
 
 async function main() {
   const grammar = new Grammar([
