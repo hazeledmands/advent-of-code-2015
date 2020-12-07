@@ -24,7 +24,7 @@ export class CodeSnippet {
   }
 
   toString() {
-    return this.code();
+    return this.read();
   }
 
   read() {
@@ -73,9 +73,17 @@ export class File {
 }
 
 export class Token extends CodeSnippet {
-  constructor({ type, value, ignore, start, end }) {
+  constructor({ lexeme, start, end }) {
     super({ start, end });
-    Object.assign(this, { type, value, ignore });
+    Object.assign(this, {
+      lexeme,
+      type: lexeme.name,
+      ignore: lexeme.ignore,
+    });
+  }
+
+  value() {
+    return this.lexeme.evaluate(this);
   }
 
   debugString() {
@@ -84,9 +92,13 @@ export class Token extends CodeSnippet {
 }
 
 export class Clause extends CodeSnippet {
-  constructor({ type, parts, start, end }) {
+  constructor({ rule, parts, start, end }) {
     super({ start, end });
-    Object.assign(this, { type, parts });
+    Object.assign(this, { rule, type: rule.name, parts });
+  }
+
+  value() {
+    return this.rule.evaluate(this);
   }
 
   debugString() {
@@ -94,14 +106,17 @@ export class Clause extends CodeSnippet {
   }
 }
 export class Lexeme {
-  constructor(name, { re, ignore, value }) {
-    Object.assign(this, { name, type: name, re, ignore, value });
+  constructor(name, { re, ignore, evaluate }) {
+    if (evaluate == null) evaluate = (token) => token.read();
+    Object.assign(this, { name, type: name, re, ignore, evaluate });
   }
 }
 
 export class Rule {
-  constructor(name, { syntax, value }) {
-    Object.assign(this, { name, type: name, syntax, value });
+  constructor(name, { syntax, evaluate }) {
+    if (evaluate == null)
+      evaluate = (clause) => clause.parts.map((part) => part.value());
+    Object.assign(this, { name, type: name, syntax, evaluate });
   }
 }
 
@@ -158,8 +173,8 @@ export class Grammar {
 
     tokens: while (readHead < input.length) {
       const remain = input.slice(readHead);
-      for (const { re, type, value: valueFn, ignore } of this.lexemes) {
-        const result = remain.match(re);
+      for (const lexeme of this.lexemes) {
+        const result = remain.match(lexeme.re);
         if (result == null || result.index != 0) continue;
 
         const text = result[0];
@@ -172,9 +187,8 @@ export class Grammar {
 
         tokens.push(
           new Token({
-            type,
-            value: valueFn ? valueFn(text) : text,
-            ignore,
+            lexeme,
+            ignore: lexeme.ignore,
             start: new CodeLocation({ file, ln, col }),
             end: new CodeLocation({
               file,
@@ -220,15 +234,15 @@ export class Grammar {
     return ast;
 
     function parse(tokens, expectedType) {
-      const expectedClause = rules[expectedType];
-      if (expectedClause == null) return null;
+      const rule = rules[expectedType];
+      if (rule == null) return null;
 
       debugLog(chalk.blue("parse"), {
         expectedType,
         code: debugTokens(tokens),
       });
 
-      option: for (const option of expectedClause.syntax) {
+      option: for (const option of rule.syntax) {
         let remainingTokens = tokens;
         const resultParts = [];
 
@@ -264,14 +278,11 @@ export class Grammar {
         }
 
         const clause = new Clause({
+          rule,
           type: expectedType,
           parts: resultParts.filter((part) => !part.ignore),
           ...CodeSnippet.join(resultParts),
         });
-
-        if (expectedClause.value != null)
-          clause.value = expectedClause.value(clause);
-        else clause.value = _.map(resultParts, "value");
 
         remainingTokensM.set(clause, remainingTokens);
         return clause;
@@ -292,5 +303,5 @@ function elideString(string, maxLength) {
 }
 
 function debugLog(...args) {
-  console.log(...args);
+  // console.log(...args);
 }

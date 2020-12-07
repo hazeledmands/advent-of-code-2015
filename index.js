@@ -4,14 +4,14 @@ import { File, Grammar, Rule, Lexeme } from "./text-parsing.js";
 
 async function main() {
   const grammar = new Grammar([
-    new Lexeme("dimension", { re: /\d+/, value: (d) => parseInt(d) }),
+    new Lexeme("dimension", { re: /\d+/, evaluate: (d) => parseInt(d) }),
     new Lexeme("x", { re: /x/, ignore: true }),
     new Lexeme("separator", { re: /\n/, ignore: true }),
     new Rule("box", {
       syntax: [["dimension", "x", "dimension", "x", "dimension"]],
-      value: (b) => {
+      evaluate: (b) => {
         const [l, w, h] = _(b.parts)
-          .map("value")
+          .map((p) => p.value())
           .sort((a, b) => a - b)
           .value();
         const volume = l * w * h;
@@ -23,13 +23,13 @@ async function main() {
     }),
     new Rule("boxList", {
       syntax: [["box", "separator", "boxList"], ["box"]],
-      value: (l) => _(l.parts).map("value").sum(),
+      evaluate: (l) => _.sum(l.parts.map((part) => part.value())),
     }),
   ]);
 
   const file = await File.loadFrom("./test.txt");
   const ast = grammar.parse(file, "boxList");
-  console.log(ast.value);
+  console.log(ast.value());
 }
 
 function log() {
