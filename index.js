@@ -1,38 +1,34 @@
 import chalk from "chalk";
 import _ from "lodash";
-import { parseFile } from "./text-parsing.js";
+import { File, Grammar, Rule, Lexeme } from "./text-parsing.js";
 
 async function main() {
-  const ast = await parseFile({
-    path: "./input.txt",
-    lexemes: [
-      { type: "dimension", re: /\d+/, value: (d) => parseInt(d) },
-      { type: "x", re: /x/, ignore: true },
-      { type: "separator", re: /\n/, ignore: true },
-    ],
-    grammar: {
-      boxList: {
-        syntax: [["box", "separator", "boxList"], ["box"]],
-        value: (l) => _(l.parts).map("value").sum(),
+  const grammar = new Grammar([
+    new Lexeme("dimension", { re: /\d+/, value: (d) => parseInt(d) }),
+    new Lexeme("x", { re: /x/, ignore: true }),
+    new Lexeme("separator", { re: /\n/, ignore: true }),
+    new Rule("box", {
+      syntax: [["dimension", "x", "dimension", "x", "dimension"]],
+      value: (b) => {
+        const [l, w, h] = _(b.parts)
+          .map("value")
+          .sort((a, b) => a - b)
+          .value();
+        const volume = l * w * h;
+        const perimiter = 2 * l + 2 * w;
+        const result = perimiter + volume;
+        // console.log({ code: b.read(), l, w, h, volume, perimiter, result });
+        return result;
       },
-      box: {
-        syntax: [["dimension", "x", "dimension", "x", "dimension"]],
-        value: (b) => {
-          const [l, w, h] = _(b.parts)
-            .map("value")
-            .sort((a, b) => a - b)
-            .value();
-          const volume = l * w * h;
-          const perimiter = 2 * l + 2 * w;
-          const result = perimiter + volume;
-          console.log({ code: b.read(), l, w, h, volume, perimiter, result });
-          return result;
-        },
-      },
-    },
-    entry: "boxList",
-  });
+    }),
+    new Rule("boxList", {
+      syntax: [["box", "separator", "boxList"], ["box"]],
+      value: (l) => _(l.parts).map("value").sum(),
+    }),
+  ]);
 
+  const file = await File.loadFrom("./test.txt");
+  const ast = grammar.parse(file, "boxList");
   console.log(ast.value);
 }
 

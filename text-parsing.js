@@ -2,19 +2,18 @@ import _ from "lodash";
 import fs from "fs";
 import chalk from "chalk";
 
-export async function parseFile({ path, lexemes, grammar: rules, entry }) {
-  const grammar = new Grammar({ rules, lexemes });
+export async function parseFile({ path, grammar, entry }) {
   const file = await File.loadFrom(path);
   return grammar.parse(file, entry);
 }
 
-class CodeLocation {
+export class CodeLocation {
   constructor({ file, ln, col }) {
     Object.assign(this, { file, ln, col });
   }
 }
 
-class CodeSnippet {
+export class CodeSnippet {
   constructor({ start, end }) {
     if (start.file !== end.file) {
       throw new Error(
@@ -48,7 +47,7 @@ class CodeSnippet {
   }
 }
 
-class File {
+export class File {
   constructor(file) {
     Object.assign(this, file);
   }
@@ -73,21 +72,40 @@ class File {
   }
 }
 
-class Token extends CodeSnippet {
+export class Token extends CodeSnippet {
   constructor({ type, value, ignore, start, end }) {
     super({ start, end });
     Object.assign(this, { type, value, ignore });
   }
+
+  debugString() {
+    return `${this.type}(${this.read()})`;
+  }
 }
 
-class Clause extends CodeSnippet {
+export class Clause extends CodeSnippet {
   constructor({ type, parts, start, end }) {
     super({ start, end });
     Object.assign(this, { type, parts });
   }
+
+  debugString() {
+    return `${this.type}(${this.read()})`;
+  }
+}
+export class Lexeme {
+  constructor(name, { re, ignore, value }) {
+    Object.assign(this, { name, type: name, re, ignore, value });
+  }
 }
 
-class LineNumberError extends Error {
+export class Rule {
+  constructor(name, { syntax, value }) {
+    Object.assign(this, { name, type: name, syntax, value });
+  }
+}
+
+export class LineNumberError extends Error {
   constructor({ message, file, ln, col }) {
     const loc = chalk.bold([file.path, ln, col].join(":"));
 
@@ -101,17 +119,22 @@ class LineNumberError extends Error {
   }
 }
 
-class Grammar {
-  constructor({ rules, lexemes }) {
+export class Grammar {
+  constructor(definitions) {
+    const lexemes = definitions.filter((d) => d instanceof Lexeme);
+    const rules = _(definitions)
+      .filter((d) => d instanceof Rule)
+      .keyBy("name")
+      .value();
+
     /* validate: */
-    const validSubClauses = new Set();
-    for (const lexeme of lexemes) validSubClauses.add(lexeme.type);
-    for (const name of Object.keys(rules)) validSubClauses.add(name);
+    const definitionNames = new Set();
+    for (const d of definitions) definitionNames.add(d.name);
 
     _.forEach(rules, (clause, name) => {
       for (const option of clause.syntax) {
         for (const subClause of option) {
-          if (!validSubClauses.has(subClause)) {
+          if (!definitionNames.has(subClause)) {
             throw new Error(
               `Grammar rule for ${chalk.blue(
                 name
@@ -214,7 +237,7 @@ class Grammar {
 
           const token = remainingTokens[0];
           if (token != null && token.type == part) {
-            debugLog(chalk.green("match"), token);
+            debugLog(chalk.green("match"), token.debugString());
             resultParts.push(token);
             remainingTokens = remainingTokens.slice(1);
             continue parts;
@@ -222,7 +245,7 @@ class Grammar {
 
           const subClause = parse(remainingTokens, part);
           if (subClause != null) {
-            debugLog(chalk.green("match"), subClause);
+            debugLog(chalk.green("match"), subClause.debugString());
 
             remainingTokens = remainingTokensM.get(subClause);
 
@@ -260,14 +283,14 @@ class Grammar {
 }
 
 function debugTokens(tokens) {
-  return (
-    tokens
-      .map((t) => `${t.type}(${t.code})`)
-      .join(" ")
-      .slice(0, 100) + "..."
-  );
+  return elideString(tokens.map((t) => t.debugString()).join(" "), 500);
+}
+
+function elideString(string, maxLength) {
+  if (string.length < maxLength) return string;
+  return string.slice(0, maxLength - 3) + "...";
 }
 
 function debugLog(...args) {
-  // console.log(...args);
+  console.log(...args);
 }
